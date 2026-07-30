@@ -7,6 +7,13 @@ export const generateUploadUrl = mutation({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Not signed in");
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (!membership) {
+      throw new Error("Join a team before uploading documents");
+    }
     return await ctx.storage.generateUploadUrl();
   },
 });

@@ -14,9 +14,6 @@ function adminEmails() {
 async function checkAdmin(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
   if (userId === null) return false;
-  // Local-dev escape hatch (set only on the anonymous local deployment,
-  // never in production): everyone is an admin.
-  if (process.env.ADMIN_ALLOW_ALL === "true") return true;
   const user = await ctx.db.get(userId);
   const email = user?.email?.toLowerCase();
   return !!email && adminEmails().includes(email);
