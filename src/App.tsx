@@ -7,6 +7,7 @@ import {
 } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
+import { BinaryField } from "./components/BinaryField";
 import { SignIn } from "./components/SignIn";
 import { FindTeam } from "./components/FindTeam";
 import { TeamDashboard } from "./components/TeamDashboard";
@@ -21,6 +22,7 @@ export default function App() {
         <div className="center-note">Loading…</div>
       </AuthLoading>
       <Unauthenticated>
+        <BinaryField />
         <SignIn />
       </Unauthenticated>
       <Authenticated>
@@ -39,8 +41,10 @@ function Main() {
 
   return (
     <div className="page">
+      {tab !== "admin" && <BinaryField />}
       <nav className="nav">
-        <span className="nav-logo">🌍 SDG Ideathon</span>
+        <span className="nav-logo">SDG Workshop</span>
+        <div className="nav-spacer" />
         <div className="nav-tabs">
           <button
             className={`nav-tab ${tab === "teams" ? "active" : ""}`}
@@ -63,7 +67,6 @@ function Main() {
             </button>
           )}
         </div>
-        <div className="nav-spacer" />
         {viewer && <span className="nav-user">{viewer.name}</span>}
         <button className="nav-signout" onClick={() => void signOut()}>
           Sign out

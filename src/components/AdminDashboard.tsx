@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { TrackBadge } from "./TrackBadge";
+import { trackById } from "../../convex/tracks";
 
 export function AdminDashboard() {
   const overview = useQuery(api.admin.overview);
@@ -34,9 +34,12 @@ export function AdminDashboard() {
         <div className="admin-team" key={team.id}>
           <div className="admin-team-head">
             <h3>{team.name}</h3>
-            <TrackBadge track={team.track} />
             <span className="admin-code">code: {team.inviteCode}</span>
           </div>
+          <p className="admin-track">
+            {trackById(team.track)?.name ?? team.track} (
+            {trackById(team.track)?.sdg})
+          </p>
 
           <div className="admin-subhead">
             Members ({team.members.length}/{team.maxSize})
@@ -44,10 +47,12 @@ export function AdminDashboard() {
           <ul className="member-list">
             {team.members.map((member) => (
               <li key={member.email}>
-                <span>{member.name}</span>
-                {member.isCreator && (
-                  <span className="creator-tag">Creator</span>
-                )}
+                <span>
+                  {member.name}
+                  {member.isCreator && (
+                    <span className="member-role"> · creator</span>
+                  )}
+                </span>
                 <span className="member-email">{member.email}</span>
               </li>
             ))}
@@ -79,7 +84,7 @@ export function AdminDashboard() {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        📄 {attachment.name}
+                        {attachment.name}
                       </a>
                     )
                 )}

@@ -136,7 +136,7 @@ export function TeamDashboard({ team }: { team: Team }) {
             className="btn-small"
             onClick={() => fileInput.current?.click()}
           >
-            📎 Attach documents
+            + Attach documents
           </button>
           {files.map((file) => (
             <span className="file-chip" key={file.name}>
@@ -202,7 +202,7 @@ export function TeamDashboard({ team }: { team: Team }) {
                       target="_blank"
                       rel="noreferrer"
                     >
-                      📄 {attachment.name}
+                      {attachment.name}
                     </a>
                   )
               )}

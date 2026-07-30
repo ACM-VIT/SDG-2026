@@ -1,12 +1,9 @@
 import { FormEvent, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { TRACKS } from "../../convex/tracks";
-import { TRACK_COLORS, FALLBACK_COLOR } from "../trackColors";
-import { TrackBadge } from "./TrackBadge";
 
 export function FindTeam() {
-  const teams = useQuery(api.teams.listTeams);
   const createTeam = useMutation(api.teams.createTeam);
   const joinTeam = useMutation(api.teams.joinTeam);
 
@@ -51,82 +48,62 @@ export function FindTeam() {
   return (
     <>
       <header className="hero">
-        <p className="hero-eyebrow">SDG Ideathon</p>
-        <h1>Find your team</h1>
-        <p className="hero-sub">Create a squad or hop into one already forming</p>
+        <h1>
+          Find your <span className="accent-orange">team</span>
+        </h1>
+        <p className="hero-sub">
+          <span className="accent-orange">Create</span>.{" "}
+          <span className="accent-blue">Join</span>.{" "}
+          <span className="accent-purple">Submit</span>. Teams of up to four,
+          one SDG track each.
+        </p>
       </header>
 
-      <div className="card-grid">
-        <form className="action-card card-create" onSubmit={handleCreate}>
-          <span className="icon">+</span>
-          <h2>Create a team</h2>
-          <p>Name your team, pick an SDG track, get an invite code to share.</p>
-          <input
-            className="field"
-            placeholder="Team name"
-            value={teamName}
-            onChange={(e) => setTeamName(e.target.value)}
-            required
-          />
-          <select
-            className="field"
-            value={track}
-            onChange={(e) => setTrack(e.target.value)}
-          >
-            <option value="">Choose SDG track</option>
-            {TRACKS.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} ({t.sdg})
-              </option>
-            ))}
-          </select>
-          {createError && <p className="form-error">{createError}</p>}
-          <button className="btn btn-create" type="submit" disabled={creating}>
-            {creating ? "Creating…" : "Create team"}
-          </button>
-        </form>
+      <form className="flow-section" onSubmit={handleCreate}>
+        <h2>Create a Team</h2>
+        <p className="flow-sub">Name your team and choose a track</p>
+        <input
+          className="field"
+          placeholder="Team name"
+          value={teamName}
+          onChange={(e) => setTeamName(e.target.value)}
+          required
+        />
+        <select
+          className="field"
+          value={track}
+          onChange={(e) => setTrack(e.target.value)}
+        >
+          <option value="">Choose SDG track</option>
+          {TRACKS.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} ({t.sdg})
+            </option>
+          ))}
+        </select>
+        {createError && <p className="form-error">{createError}</p>}
+        <button className="btn btn-create" type="submit" disabled={creating}>
+          {creating ? "Creating…" : "Create team"}
+        </button>
+      </form>
 
-        <form className="action-card card-join" onSubmit={handleJoin}>
-          <span className="icon">👥</span>
-          <h2>Join a team</h2>
-          <p>Got an invite code from a teammate? Drop it in here.</p>
-          <input
-            className="field"
-            placeholder="Enter invite code"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-            required
-          />
-          <p className="hint">Codes are shared by team creators after signup.</p>
-          {joinError && <p className="form-error">{joinError}</p>}
-          <button className="btn btn-join" type="submit" disabled={joining}>
-            {joining ? "Joining…" : "Join team"}
-          </button>
-        </form>
-      </div>
+      <div className="divider">or</div>
 
-      <h2 className="section-title">Teams forming now</h2>
-      {teams === undefined ? (
-        <div className="empty-note">Loading teams…</div>
-      ) : teams.length === 0 ? (
-        <div className="empty-note">
-          No teams yet — be the first to create one!
-        </div>
-      ) : (
-        teams.map((team) => {
-          const colors = TRACK_COLORS[team.track] ?? FALLBACK_COLOR;
-          return (
-            <div className="team-row" key={team.id}>
-              <span className="team-dot" style={{ background: colors.dot }} />
-              <span className="team-name">{team.name}</span>
-              <TrackBadge track={team.track} />
-              <span className="team-count">
-                {team.memberCount}/{team.maxSize} joined
-              </span>
-            </div>
-          );
-        })
-      )}
+      <form className="flow-section" onSubmit={handleJoin}>
+        <h2>Join a Team</h2>
+        <p className="flow-sub">Join a team using a team code</p>
+        <input
+          className="field"
+          placeholder="Enter invite code"
+          value={inviteCode}
+          onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+          required
+        />
+        {joinError && <p className="form-error">{joinError}</p>}
+        <button className="btn btn-join" type="submit" disabled={joining}>
+          {joining ? "Joining…" : "Join team"}
+        </button>
+      </form>
     </>
   );
 }
