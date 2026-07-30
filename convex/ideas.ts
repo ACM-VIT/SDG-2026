@@ -52,6 +52,31 @@ export const submitIdea = mutation({
   },
 });
 
+export const cleanupUploads = mutation({
+  args: { storageIds: v.array(v.id("_storage")) },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not signed in");
+    // No membership check: a failed submission may be caused by the user
+    // having just left their team, and they must still be able to discard
+    // the files they uploaded moments earlier.
+    const submissions = await ctx.db.query("submissions").collect();
+    const referenced = new Set<string>();
+    for (const submission of submissions) {
+      for (const attachment of submission.attachments) {
+        referenced.add(attachment.storageId);
+      }
+    }
+    for (const storageId of args.storageIds) {
+      // Only delete uploads no submission references, so a caller can
+      // never remove an attachment that belongs to a committed submission.
+      if (!referenced.has(storageId)) {
+        await ctx.storage.delete(storageId);
+      }
+    }
+  },
+});
+
 export const teamSubmissions = query({
   args: {},
   handler: async (ctx) => {

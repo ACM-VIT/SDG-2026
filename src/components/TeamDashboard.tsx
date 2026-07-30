@@ -1,6 +1,7 @@
 import { FormEvent, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { Id } from "../../convex/_generated/dataModel";
 import { TrackBadge } from "./TrackBadge";
 import { errorMessage } from "./FindTeam";
 
@@ -22,6 +23,7 @@ export function TeamDashboard({ team }: { team: Team }) {
   const submissions = useQuery(api.ideas.teamSubmissions);
   const generateUploadUrl = useMutation(api.ideas.generateUploadUrl);
   const submitIdea = useMutation(api.ideas.submitIdea);
+  const cleanupUploads = useMutation(api.ideas.cleanupUploads);
   const deleteSubmission = useMutation(api.ideas.deleteSubmission);
   const leaveTeam = useMutation(api.teams.leaveTeam);
 
@@ -47,8 +49,8 @@ export function TeamDashboard({ team }: { team: Team }) {
     e.preventDefault();
     setError("");
     setSubmitting(true);
+    const attachments: { storageId: Id<"_storage">; name: string }[] = [];
     try {
-      const attachments = [];
       for (const file of files) {
         const uploadUrl = await generateUploadUrl();
         const result = await fetch(uploadUrl, {
@@ -68,6 +70,12 @@ export function TeamDashboard({ team }: { team: Team }) {
       showToast("Idea submitted!");
     } catch (err) {
       setError(errorMessage(err));
+      if (attachments.length > 0) {
+        // Best effort: discard uploads that never made it onto a submission.
+        void cleanupUploads({
+          storageIds: attachments.map((attachment) => attachment.storageId),
+        }).catch(() => {});
+      }
     } finally {
       setSubmitting(false);
     }
