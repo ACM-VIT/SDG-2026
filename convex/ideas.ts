@@ -99,6 +99,15 @@ export const deleteSubmission = mutation({
     if (submission.authorId !== userId) {
       throw new Error("Only the author can delete a submission");
     }
+    // The author must still be on the team: once someone leaves, the
+    // submission belongs to the team they left behind.
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (!membership || membership.teamId !== submission.teamId) {
+      throw new Error("Only current team members can delete a submission");
+    }
     for (const attachment of submission.attachments) {
       await ctx.storage.delete(attachment.storageId);
     }

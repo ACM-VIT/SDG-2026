@@ -85,6 +85,10 @@ export const joinTeam = mutation({
       .withIndex("by_inviteCode", (q) => q.eq("inviteCode", code))
       .unique();
     if (!team) throw new Error("No team found for that invite code");
+    // Capacity check + insert are atomic: Convex mutations run as
+    // serializable transactions, so a concurrent join to the same team
+    // conflicts on the membership read and one of the two retries,
+    // re-running this check against the new count.
     if ((await teamMemberCount(ctx, team._id)) >= MAX_TEAM_SIZE) {
       throw new Error("That team is already full");
     }
