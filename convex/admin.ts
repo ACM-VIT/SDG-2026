@@ -2,21 +2,11 @@ import { query, QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { MAX_TEAM_SIZE } from "./teams";
 
-// Comma-separated ADMIN_EMAILS env var on the Convex deployment overrides this.
-const DEFAULT_ADMIN_EMAILS = ["ayaankhatri@outlook.com"];
-
-function adminEmails() {
-  const env = process.env.ADMIN_EMAILS;
-  if (!env) return DEFAULT_ADMIN_EMAILS;
-  return env.split(",").map((e) => e.trim().toLowerCase());
-}
-
 async function checkAdmin(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
   if (userId === null) return false;
   const user = await ctx.db.get(userId);
-  const email = user?.email?.toLowerCase();
-  return !!email && adminEmails().includes(email);
+  return user?.isAdmin === true;
 }
 
 export const isAdmin = query({
