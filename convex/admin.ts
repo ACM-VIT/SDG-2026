@@ -2,7 +2,7 @@ import { query, QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { MAX_TEAM_SIZE } from "./teams";
 
-async function checkAdmin(ctx: QueryCtx) {
+export async function checkAdmin(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
   if (userId === null) return false;
   const user = await ctx.db.get(userId);

@@ -18,13 +18,9 @@ export function FindTeam() {
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     setCreateError("");
-    if (!track) {
-      setCreateError("Choose an SDG track for your team");
-      return;
-    }
     setCreating(true);
     try {
-      await createTeam({ name: teamName, track });
+      await createTeam({ name: teamName, track: track || undefined });
     } catch (err) {
       setCreateError(errorMessage(err));
     } finally {
@@ -61,7 +57,9 @@ export function FindTeam() {
 
       <form className="flow-section" onSubmit={handleCreate}>
         <h2>Create a Team</h2>
-        <p className="flow-sub">Name your team and choose a track</p>
+        <p className="flow-sub">
+          Name your team — you can pick a track now or later
+        </p>
         <input
           className="field"
           placeholder="Team name"
@@ -74,7 +72,7 @@ export function FindTeam() {
           value={track}
           onChange={(e) => setTrack(e.target.value)}
         >
-          <option value="">Choose SDG track</option>
+          <option value="">Choose SDG track (optional)</option>
           {TRACKS.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name} ({t.sdg})

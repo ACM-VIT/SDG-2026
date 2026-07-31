@@ -39,14 +39,14 @@ async function teamMemberCount(ctx: QueryCtx, teamId: Id<"teams">) {
 }
 
 export const createTeam = mutation({
-  args: { name: v.string(), track: v.string() },
+  args: { name: v.string(), track: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     const name = args.name.trim();
     if (name.length < 2 || name.length > 40) {
       throw new Error("Team name must be 2-40 characters");
     }
-    if (!TRACK_IDS.includes(args.track)) {
+    if (args.track !== undefined && !TRACK_IDS.includes(args.track)) {
       throw new Error("Pick a valid SDG track");
     }
     if (await membershipFor(ctx, userId)) {
@@ -69,6 +69,19 @@ export const createTeam = mutation({
     });
     await ctx.db.insert("memberships", { teamId, userId });
     return { teamId, inviteCode };
+  },
+});
+
+export const setTrack = mutation({
+  args: { track: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const membership = await membershipFor(ctx, userId);
+    if (!membership) throw new Error("You are not in a team");
+    if (!TRACK_IDS.includes(args.track)) {
+      throw new Error("Pick a valid SDG track");
+    }
+    await ctx.db.patch(membership.teamId, { track: args.track });
   },
 });
 

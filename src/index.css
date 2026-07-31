@@ -464,6 +464,36 @@ select.field option[value=""] {
   border-color: #513333;
 }
 
+.btn-small.danger.btn-leave {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+  transform: translateY(3px);
+}
+
+.track-select {
+  width: auto;
+  max-width: 240px;
+  margin: 0;
+}
+
+.file-chip .chip-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  margin-left: 6px;
+  padding: 0;
+  font-size: 13px;
+}
+
+.admin-uploads {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .member-list {
   list-style: none;
   margin: 0;

@@ -1,9 +1,11 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { trackById } from "../../convex/tracks";
 
 export function AdminDashboard() {
   const overview = useQuery(api.admin.overview);
+  const settings = useQuery(api.settings.get);
+  const setUploads = useMutation(api.settings.setUploads);
 
   if (overview === undefined) {
     return <div className="center-note">Loading admin data…</div>;
@@ -11,6 +13,26 @@ export function AdminDashboard() {
 
   return (
     <>
+      <div className="admin-uploads">
+        <span>
+          Submissions are{" "}
+          <strong>{settings === undefined ? "…" : settings.uploads}</strong>
+        </span>
+        <button
+          className="btn-small"
+          disabled={settings === undefined}
+          onClick={() =>
+            void setUploads({
+              uploads: settings?.uploads === "open" ? "closed" : "open",
+            })
+          }
+        >
+          {settings?.uploads === "open"
+            ? "Close submissions"
+            : "Reopen submissions"}
+        </button>
+      </div>
+
       <div className="stat-grid">
         <div className="stat-card">
           <div className="stat-value">{overview.teamCount}</div>
@@ -37,8 +59,11 @@ export function AdminDashboard() {
             <span className="admin-code">code: {team.inviteCode}</span>
           </div>
           <p className="admin-track">
-            {trackById(team.track)?.name ?? team.track} (
-            {trackById(team.track)?.sdg})
+            {team.track
+              ? `${trackById(team.track)?.name ?? team.track} (${
+                  trackById(team.track)?.sdg
+                })`
+              : "No track chosen yet"}
           </p>
 
           <div className="admin-subhead">

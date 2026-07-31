@@ -19,10 +19,14 @@ export default defineSchema({
     .index("phone", ["phone"]),
   teams: defineTable({
     name: v.string(),
-    track: v.string(),
+    track: v.optional(v.string()),
     inviteCode: v.string(),
     createdBy: v.id("users"),
   }).index("by_inviteCode", ["inviteCode"]),
+  // Single-row table of global event settings.
+  settings: defineTable({
+    uploads: v.union(v.literal("open"), v.literal("closed")),
+  }),
   memberships: defineTable({
     teamId: v.id("teams"),
     userId: v.id("users"),
