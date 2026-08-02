@@ -40,6 +40,8 @@ export function RLTreasureLab() {
   const qRef = useRef(new Map<string, number[]>());
   const rngRef = useRef(mulberry32(2026));
   const timerRef = useRef<number | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const mountedRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [run, setRun] = useState(freshRun);
   const [preset, setPreset] = useState<Preset>("balanced");
@@ -120,9 +122,29 @@ export function RLTreasureLab() {
   const trainBatch = useCallback((count: number, backup = false) => {
     if (busy) return; setBusy(true); setTestMode(false); setStatus(backup ? "Building deterministic backup checkpoint…" : `Training ${count.toLocaleString()} episodes locally…`);
     let done = 0; let eps = backup ? .9 : epsilon; let wins = 0; const scores: number[] = []; let batchBest = best;
-    const chunk = () => { const end = Math.min(done + 40, count); for (; done < end; done++) { const result = oneEpisode(eps); scores.push(result.score); if (result.success) { wins++; batchBest = batchBest === null ? result.steps : Math.min(batchBest, result.steps); } eps = Math.max(.05, eps * .996); }
-      if (done < count) requestAnimationFrame(chunk); else { setEpisodes(e => backup ? count : e + count); setSuccesses(s => backup ? wins : s + wins); setHistory(h => backup ? scores : [...h, ...scores]); setEpsilon(eps); setBest(batchBest); setBusy(false); setStatus(backup ? "Backup checkpoint loaded — ready to test" : `Training complete — ${wins}/${count} episodes reached treasure`); forceQ(v => v + 1); }
-    }; requestAnimationFrame(chunk);
+    const chunk = () => {
+      if (!mountedRef.current) return;
+      const end = Math.min(done + 40, count);
+      for (; done < end; done++) {
+        const result = oneEpisode(eps);
+        scores.push(result.score);
+        if (result.success) { wins++; batchBest = batchBest === null ? result.steps : Math.min(batchBest, result.steps); }
+        eps = Math.max(.05, eps * .996);
+      }
+      if (!mountedRef.current) return;
+      if (done < count) {
+        frameRef.current = requestAnimationFrame(chunk);
+      } else {
+        frameRef.current = null;
+        setEpisodes(e => backup ? count : e + count);
+        setSuccesses(s => backup ? wins : s + wins);
+        setHistory(h => backup ? scores : [...h, ...scores]);
+        setEpsilon(eps); setBest(batchBest); setBusy(false);
+        setStatus(backup ? "Backup checkpoint loaded — ready to test" : `Training complete — ${wins}/${count} episodes reached treasure`);
+        forceQ(v => v + 1);
+      }
+    };
+    frameRef.current = requestAnimationFrame(chunk);
   }, [best, busy, epsilon, oneEpisode]);
 
   const selectPreset = (p: Preset) => { setPreset(p); queueMicrotask(() => resetLearning(`${p[0].toUpperCase() + p.slice(1)} rewards selected — learning reset`)); };
@@ -133,8 +155,72 @@ export function RLTreasureLab() {
   const qValues = qFor(inspectedState); const maxQ = Math.max(...qValues);
   const avg = history.length ? history.slice(-100).reduce((a, b) => a + b, 0) / Math.min(100, history.length) : 0;
 
-  useEffect(() => () => { if (timerRef.current !== null) window.clearTimeout(timerRef.current); }, []);
-  useEffect(() => { const c = canvasRef.current; if (!c) return; const ctx = c.getContext("2d"); if (!ctx) return; const dpr = devicePixelRatio || 1; const w = c.clientWidth, h = c.clientHeight; c.width = w*dpr; c.height = h*dpr; ctx.scale(dpr,dpr); ctx.clearRect(0,0,w,h); ctx.strokeStyle="#24333a"; ctx.lineWidth=1; for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(36,i*h/4);ctx.lineTo(w,i*h/4);ctx.stroke();} if(!history.length){ctx.fillStyle="#718087";ctx.font="12px monospace";ctx.textBaseline="middle";ctx.fillText("Train the agent to reveal its learning curve",36,h/2-14);return;} const sampled=history.length>500?history.filter((_,i)=>i%Math.ceil(history.length/500)===0):history; const min=Math.min(-80,...sampled), max=Math.max(120,...sampled); const y=(v:number)=>h-18-(v-min)/(max-min)*(h-32); const line=(data:number[],color:string,width:number)=>{ctx.beginPath();data.forEach((v,i)=>{const x=36+i/Math.max(1,data.length-1)*(w-46);i?ctx.lineTo(x,y(v)):ctx.moveTo(x,y(v));});ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();}; line(sampled,"rgba(25,245,170,.28)",1); const moving=sampled.map((_,i,a)=>a.slice(Math.max(0,i-19),i+1).reduce((x,v)=>x+v,0)/Math.min(20,i+1));line(moving,"#18f3d1",2.5); }, [history]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      timerRef.current = null;
+      frameRef.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const dpr = devicePixelRatio || 1;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, width, height);
+    ctx.strokeStyle = "#24333a";
+    ctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(36, i * height / 4);
+      ctx.lineTo(width, i * height / 4);
+      ctx.stroke();
+    }
+    if (!history.length) {
+      ctx.fillStyle = "#718087";
+      ctx.font = "12px monospace";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Train the agent to reveal its learning curve", 36, height / 2 - 14);
+      return;
+    }
+
+    const movingAverage = history.map((_, index) => {
+      const start = Math.max(0, index - 19);
+      const window = history.slice(start, index + 1);
+      return window.reduce((sum, value) => sum + value, 0) / window.length;
+    });
+    const sampleStep = Math.max(1, Math.ceil(history.length / 500));
+    const sampleIndexes = history
+      .map((_, index) => index)
+      .filter(index => index % sampleStep === 0 || index === history.length - 1);
+    const sampledRewards = sampleIndexes.map(index => history[index]);
+    const sampledAverage = sampleIndexes.map(index => movingAverage[index]);
+    const min = Math.min(-80, ...sampledRewards, ...sampledAverage);
+    const max = Math.max(120, ...sampledRewards, ...sampledAverage);
+    const y = (value: number) => height - 18 - (value - min) / (max - min) * (height - 32);
+    const drawLine = (data: number[], color: string, lineWidth: number) => {
+      ctx.beginPath();
+      data.forEach((value, index) => {
+        const x = 36 + index / Math.max(1, data.length - 1) * (width - 46);
+        if (index === 0) ctx.moveTo(x, y(value));
+        else ctx.lineTo(x, y(value));
+      });
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+    };
+    drawLine(sampledRewards, "rgba(25,245,170,.28)", 1);
+    drawLine(sampledAverage, "#18f3d1", 2.5);
+  }, [history]);
 
   return <section className="rl-lab" aria-label="RL Treasure Lab">
     <header className="rl-head"><div><p className="eyebrow">LIVE REINFORCEMENT LEARNING SYSTEM</p><h1>RL TREASURE <span>LAB</span></h1></div><div className={`mode-chip ${testMode ? "test" : ""}`}><i />{testMode ? `TEST · ε ${Math.round(activeTestEpsilon * 100)}%` : busy ? "SYSTEM RUNNING" : "LAB READY"}</div></header>
