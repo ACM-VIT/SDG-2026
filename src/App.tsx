@@ -12,6 +12,7 @@ import { SignIn } from "./components/SignIn";
 import { FindTeam } from "./components/FindTeam";
 import { TeamDashboard } from "./components/TeamDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
+import { RLTreasureLab } from "./components/RLTreasureLab";
 
 type Tab = "teams" | "demo" | "admin";
 
@@ -82,15 +83,7 @@ function Main() {
           <TeamDashboard team={myTeam} />
         ))}
 
-      {tab === "demo" && (
-        <div className="demo-placeholder">
-          <h2>Live demo</h2>
-          <p>
-            The RL training demo will appear here during the workshop. Stay
-            tuned!
-          </p>
-        </div>
-      )}
+      {tab === "demo" && <RLTreasureLab />}
 
       {tab === "admin" && isAdmin && <AdminDashboard />}
     </div>
