@@ -1,0 +1,9 @@
+node_modules
+dist
+.env.local
+.env
+*.local
+.DS_Store
+.auth-keys
+.claude/
+.agents/
