@@ -4,11 +4,9 @@ import { convexAuth } from "@convex-dev/auth/server";
 // Emails in the comma-separated ADMIN_EMAILS env var get isAdmin set on their
 // first sign-in. After that, the isAdmin flag on the users table is the source
 // of truth (editable in the Convex dashboard).
-const DEFAULT_ADMIN_EMAILS = ["ayaankhatri@outlook.com"];
-
 function bootstrapAdminEmails() {
   const env = process.env.ADMIN_EMAILS;
-  if (!env) return DEFAULT_ADMIN_EMAILS;
+  if (!env) return [];
   return env.split(",").map((e) => e.trim().toLowerCase());
 }
 

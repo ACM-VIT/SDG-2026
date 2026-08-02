@@ -12,7 +12,7 @@ React + Vite frontend with a [Convex](https://convex.dev) backend and
 - Submit ideas: title, description, and document attachments (Convex file storage)
 - Admin dashboard (team count, members, all submissions + documents) —
   gated by the `isAdmin` flag on the `users` table. Emails in the
-  `ADMIN_EMAILS` env var (defaults to `ayaankhatri@outlook.com`, see
+  comma-separated `ADMIN_EMAILS` env var (set it on the deployment, see
   `convex/auth.ts`) get the flag automatically on first sign-in; other
   admins can be granted by setting `isAdmin: true` on their user row in
   the Convex dashboard.
