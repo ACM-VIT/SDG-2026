@@ -1,25 +1,8 @@
 import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
 
-// Emails in the comma-separated ADMIN_EMAILS env var get isAdmin set on their
-// first sign-in. After that, the isAdmin flag on the users table is the source
-// of truth (editable in the Convex dashboard).
-function bootstrapAdminEmails() {
-  const env = process.env.ADMIN_EMAILS;
-  if (!env) return [];
-  return env.split(",").map((e) => e.trim().toLowerCase());
-}
-
+// isAdmin is never set automatically — it's only ever changed by editing the
+// users table directly in the Convex dashboard.
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [Google],
-  callbacks: {
-    async afterUserCreatedOrUpdated(ctx, { userId }) {
-      const user = await ctx.db.get(userId);
-      if (!user || user.isAdmin !== undefined) return;
-      const email = user.email?.toLowerCase();
-      if (email && bootstrapAdminEmails().includes(email)) {
-        await ctx.db.patch(userId, { isAdmin: true });
-      }
-    },
-  },
 });

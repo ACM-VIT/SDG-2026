@@ -11,11 +11,9 @@ React + Vite frontend with a [Convex](https://convex.dev) backend and
 - "Teams forming now" live list
 - Submit ideas: title, description, and document attachments (Convex file storage)
 - Admin dashboard (team count, members, all submissions + documents) —
-  gated by the `isAdmin` flag on the `users` table. Emails in the
-  comma-separated `ADMIN_EMAILS` env var (set it on the deployment, see
-  `convex/auth.ts`) get the flag automatically on first sign-in; other
-  admins can be granted by setting `isAdmin: true` on their user row in
-  the Convex dashboard.
+  gated by the `isAdmin` flag on the `users` table. Grant admin access by
+  setting `isAdmin: true` on a user's row in the Convex dashboard (the
+  user must have signed in at least once).
 - Live demo tab is a placeholder for the workshop demo
 
 ## Run locally
@@ -58,7 +56,6 @@ npx convex env set JWKS -- "$(cat .auth-keys/JWKS.txt)"
 npx convex env set SITE_URL <your-frontend-url>
 npx convex env set AUTH_GOOGLE_ID <client-id>
 npx convex env set AUTH_GOOGLE_SECRET <client-secret>
-npx convex env set ADMIN_EMAILS ayaankhatri@outlook.com
 ```
 
 3. `npm run build` and host `dist/` anywhere (Vercel/Netlify), with

@@ -468,7 +468,7 @@ select.field option[value=""] {
   background: var(--danger);
   color: #fff;
   border-color: var(--danger);
-  transform: translateY(3px);
+  transform: translateY(13px);
 }
 
 .track-select {
@@ -491,6 +491,7 @@ select.field option[value=""] {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-top: 7px;
   margin-bottom: 16px;
 }
 
