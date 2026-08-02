@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { Id } from "./_generated/dataModel";
 import { uploadsOpen } from "./settings";
 
 export const generateUploadUrl = mutation({
@@ -21,6 +22,60 @@ export const generateUploadUrl = mutation({
     return await ctx.storage.generateUploadUrl();
   },
 });
+
+// Called right after a file finishes uploading, so the storage ID gets
+// bound to the uploader's team before it can ever be referenced elsewhere.
+// First claim wins: once a storage ID is claimed, nobody else can claim it,
+// so a team can never graft another team's file onto their own submission.
+export const claimUpload = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not signed in");
+    const membership = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (!membership) {
+      throw new Error("Join a team before uploading documents");
+    }
+    const existing = await ctx.db
+      .query("uploads")
+      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
+      .unique();
+    if (existing) throw new Error("This upload has already been claimed");
+    await ctx.db.insert("uploads", {
+      storageId: args.storageId,
+      teamId: membership.teamId,
+      userId,
+    });
+  },
+});
+
+// Throws unless every attachment's storage ID was claimed by this team.
+async function assertOwnedAttachments(
+  ctx: MutationCtx,
+  teamId: Id<"teams">,
+  attachments: { storageId: Id<"_storage">; name: string }[]
+) {
+  for (const attachment of attachments) {
+    const upload = await ctx.db
+      .query("uploads")
+      .withIndex("by_storageId", (q) => q.eq("storageId", attachment.storageId))
+      .unique();
+    if (!upload || upload.teamId !== teamId) {
+      throw new Error("Invalid attachment");
+    }
+  }
+}
+
+async function deleteUploadRecord(ctx: MutationCtx, storageId: Id<"_storage">) {
+  const upload = await ctx.db
+    .query("uploads")
+    .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+    .unique();
+  if (upload) await ctx.db.delete(upload._id);
+}
 
 export const submitIdea = mutation({
   args: {
@@ -56,6 +111,7 @@ export const submitIdea = mutation({
     if (args.text.trim().length === 0 && args.attachments.length === 0) {
       throw new Error("Add a description or attach a document");
     }
+    await assertOwnedAttachments(ctx, membership.teamId, args.attachments);
     await ctx.db.insert("submissions", {
       teamId: membership.teamId,
       authorId: userId,
@@ -100,12 +156,14 @@ export const updateSubmission = mutation({
     if (args.text.trim().length === 0 && args.attachments.length === 0) {
       throw new Error("Add a description or attach a document");
     }
+    await assertOwnedAttachments(ctx, membership.teamId, args.attachments);
     const keptIds = new Set<string>(
       args.attachments.map((attachment) => attachment.storageId)
     );
     for (const attachment of submission.attachments) {
       if (!keptIds.has(attachment.storageId)) {
         await ctx.storage.delete(attachment.storageId);
+        await deleteUploadRecord(ctx, attachment.storageId);
       }
     }
     await ctx.db.patch(args.id, {
@@ -132,10 +190,16 @@ export const cleanupUploads = mutation({
       }
     }
     for (const storageId of args.storageIds) {
-      // Only delete uploads no submission references, so a caller can
-      // never remove an attachment that belongs to a committed submission.
-      if (!referenced.has(storageId)) {
+      const upload = await ctx.db
+        .query("uploads")
+        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+        .unique();
+      // Only delete uploads the caller claimed themselves and that no
+      // submission references, so a caller can never remove someone else's
+      // in-flight upload or an attachment on a committed submission.
+      if (upload && upload.userId === userId && !referenced.has(storageId)) {
         await ctx.storage.delete(storageId);
+        await ctx.db.delete(upload._id);
       }
     }
   },
@@ -197,6 +261,7 @@ export const deleteSubmission = mutation({
     }
     for (const attachment of submission.attachments) {
       await ctx.storage.delete(attachment.storageId);
+      await deleteUploadRecord(ctx, attachment.storageId);
     }
     await ctx.db.delete(args.id);
   },

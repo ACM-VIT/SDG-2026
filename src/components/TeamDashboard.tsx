@@ -26,6 +26,7 @@ export function TeamDashboard({ team }: { team: Team }) {
   const submissions = useQuery(api.ideas.teamSubmissions);
   const settings = useQuery(api.settings.get);
   const generateUploadUrl = useMutation(api.ideas.generateUploadUrl);
+  const claimUpload = useMutation(api.ideas.claimUpload);
   const submitIdea = useMutation(api.ideas.submitIdea);
   const updateSubmission = useMutation(api.ideas.updateSubmission);
   const cleanupUploads = useMutation(api.ideas.cleanupUploads);
@@ -97,6 +98,7 @@ export function TeamDashboard({ team }: { team: Team }) {
         });
         if (!result.ok) throw new Error(`Failed to upload ${file.name}`);
         const { storageId } = await result.json();
+        await claimUpload({ storageId });
         uploaded.push({ storageId, name: file.name });
       }
       if (submission) {

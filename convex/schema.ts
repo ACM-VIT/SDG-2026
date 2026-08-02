@@ -33,6 +33,13 @@ export default defineSchema({
   })
     .index("by_team", ["teamId"])
     .index("by_user", ["userId"]),
+  // Records which team actually generated each storage upload, so
+  // submissions can't reference another team's file by guessing its ID.
+  uploads: defineTable({
+    storageId: v.id("_storage"),
+    teamId: v.id("teams"),
+    userId: v.id("users"),
+  }).index("by_storageId", ["storageId"]),
   submissions: defineTable({
     teamId: v.id("teams"),
     authorId: v.id("users"),
