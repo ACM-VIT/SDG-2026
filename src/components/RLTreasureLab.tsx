@@ -40,6 +40,7 @@ export function RLTreasureLab() {
   const qRef = useRef(new Map<string, number[]>());
   const rngRef = useRef(mulberry32(2026));
   const timerRef = useRef<number | null>(null);
+  const backupTimerRef = useRef<number | null>(null);
   const frameRef = useRef<number | null>(null);
   const mountedRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -78,6 +79,8 @@ export function RLTreasureLab() {
 
   const resetLearning = useCallback((message = "Learning reset — Q-table is empty") => {
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    if (backupTimerRef.current !== null) window.clearTimeout(backupTimerRef.current);
+    backupTimerRef.current = null;
     qRef.current = new Map(); rngRef.current = mulberry32(2026); setRun(freshRun()); setEpsilon(.9); setEpisodes(0); setSuccesses(0); setHistory([]); setBest(null); setBusy(false); setTestMode(false); setStatus(message); setFeedback({ action: "—", mode: "Waiting", reward: 0, event: "Fresh agent" }); forceQ(v => v + 1);
   }, []);
 
@@ -120,7 +123,8 @@ export function RLTreasureLab() {
   }, [busy, choose, epsilon, learn, speed, transition]);
 
   const trainBatch = useCallback((count: number, backup = false) => {
-    if (busy) return; setBusy(true); setTestMode(false); setStatus(backup ? "Building deterministic backup checkpoint…" : `Training ${count.toLocaleString()} episodes locally…`);
+    if (!mountedRef.current || busy) return;
+    setBusy(true); setTestMode(false); setStatus(backup ? "Building deterministic backup checkpoint…" : `Training ${count.toLocaleString()} episodes locally…`);
     let done = 0; let eps = backup ? .9 : epsilon; let wins = 0; const scores: number[] = []; let batchBest = best;
     const chunk = () => {
       if (!mountedRef.current) return;
@@ -149,6 +153,14 @@ export function RLTreasureLab() {
 
   const selectPreset = (p: Preset) => { setPreset(p); queueMicrotask(() => resetLearning(`${p[0].toUpperCase() + p.slice(1)} rewards selected — learning reset`)); };
   const selectMap = (id: MapId) => { setMapId(id); setSelectedCell(null); queueMicrotask(() => resetLearning(`${MAPS[id].name} selected — learning reset`)); };
+  const loadBackupCheckpoint = () => {
+    resetLearning("Preparing backup checkpoint…");
+    backupTimerRef.current = window.setTimeout(() => {
+      backupTimerRef.current = null;
+      if (!mountedRef.current) return;
+      trainBatch(1800, true);
+    }, 0);
+  };
   const selectedPosition = selectedCell ? `${selectedCell.row},${selectedCell.col}` : null;
   const selectedVisitMask = selectedPosition === null ? undefined : run.visitedMasks[selectedPosition];
   const inspectedState = selectedCell ? { ...selectedCell, mask: selectedVisitMask ?? 0 } : run;
@@ -160,8 +172,10 @@ export function RLTreasureLab() {
     return () => {
       mountedRef.current = false;
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      if (backupTimerRef.current !== null) window.clearTimeout(backupTimerRef.current);
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       timerRef.current = null;
+      backupTimerRef.current = null;
       frameRef.current = null;
     };
   }, []);
@@ -237,7 +251,7 @@ export function RLTreasureLab() {
       <div className="lab-card graph-card"><div className="card-title"><span>LEARNING CURVE</span><b>EPISODE REWARD + 20-EP MOVING AVG</b></div><canvas ref={canvasRef}/></div>
       <div className="lab-card q-card"><div className="card-title"><span>ACTION VALUES</span><button onClick={()=>setShowQ(v=>!v)}>{showQ?"HIDE":"REVEAL"} Q-VALUES</button></div><p>{busy ? `Following agent · row ${run.row + 1}, column ${run.col + 1} · ${map.items.filter((_, i) => run.mask & (1 << i)).length}/4 items collected` : selectedCell ? `Row ${selectedCell.row + 1}, column ${selectedCell.col + 1} · ${selectedVisitMask === undefined ? "not visited this episode; showing initial item state" : `state from latest visit · ${map.items.filter((_, i) => selectedVisitMask & (1 << i)).length}/4 items collected`}` : "Agent's current state · click any open map cell to inspect it"}</p><div className={`q-values ${showQ?"":"concealed"}`}>{ACTIONS.map((a,i)=><div className={qValues[i]===maxQ&&showQ?"best":""} key={a}><span>{["↑","→","↓","←"][i]} {a}</span><b>{showQ?qValues[i].toFixed(2):"••••"}</b></div>)}</div></div>
     </div>
-    <div className="lab-card controls"><div className="control-status"><span>CONTROL DECK</span><p>{status}</p></div><div className="control-row primary-controls"><button disabled={busy} onClick={()=>resetLearning()}>Reset learning</button><button disabled={busy} onClick={()=>animateEpisode(false)}>Run untrained episode</button><button className="accent" disabled={busy} onClick={()=>animateEpisode(false,true)}>Train 1 episode</button><button className="accent" disabled={busy} onClick={()=>trainBatch(100)}>Train 100</button><button className="accent" disabled={busy} onClick={()=>trainBatch(1000)}>Train 1,000</button><button className="test-btn" disabled={busy} onClick={()=>animateEpisode(true,false,0)}>Test · ε 0%</button><button className="test-btn exploratory-test" disabled={busy} onClick={()=>animateEpisode(true,false,testEpsilonSetting)}>Test · Custom ε</button><button disabled={busy} onClick={resetEpisode}>Reset episode</button></div><div className="control-row secondary-controls"><div className="segmented map-selector">{(["circuit","crossroads"] as MapId[]).map(id=><button disabled={busy} className={mapId===id?"active":""} key={id} onClick={()=>selectMap(id)}>{MAPS[id].name}</button>)}</div><div className="segmented">{(["balanced","speed","collector"] as Preset[]).map(p=><button disabled={busy} className={preset===p?"active":""} key={p} onClick={()=>selectPreset(p)}>{p}</button>)}</div><button disabled={busy} onClick={()=>{resetLearning("Preparing backup checkpoint…");setTimeout(()=>trainBatch(1800,true),0)}}>Load backup checkpoint</button><label>Test exploration <b>{Math.round(testEpsilonSetting*100)}%</b><input disabled={busy} aria-label="Test exploration percentage" type="range" min="0" max="100" step="1" value={testEpsilonSetting*100} onChange={e=>setTestEpsilonSetting(Number(e.target.value)/100)}/></label><label>Animation speed <input aria-label="Animation speed" type="range" min="100" max="900" step="50" value={1000-speed} onChange={e=>setSpeed(1000-Number(e.target.value))}/></label><button onClick={()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}>Presentation mode</button></div></div>
+    <div className="lab-card controls"><div className="control-status"><span>CONTROL DECK</span><p>{status}</p></div><div className="control-row primary-controls"><button disabled={busy} onClick={()=>resetLearning()}>Reset learning</button><button disabled={busy} onClick={()=>animateEpisode(false)}>Run untrained episode</button><button className="accent" disabled={busy} onClick={()=>animateEpisode(false,true)}>Train 1 episode</button><button className="accent" disabled={busy} onClick={()=>trainBatch(100)}>Train 100</button><button className="accent" disabled={busy} onClick={()=>trainBatch(1000)}>Train 1,000</button><button className="test-btn" disabled={busy} onClick={()=>animateEpisode(true,false,0)}>Test · ε 0%</button><button className="test-btn exploratory-test" disabled={busy} onClick={()=>animateEpisode(true,false,testEpsilonSetting)}>Test · Custom ε</button><button disabled={busy} onClick={resetEpisode}>Reset episode</button></div><div className="control-row secondary-controls"><div className="segmented map-selector">{(["circuit","crossroads"] as MapId[]).map(id=><button disabled={busy} className={mapId===id?"active":""} key={id} onClick={()=>selectMap(id)}>{MAPS[id].name}</button>)}</div><div className="segmented">{(["balanced","speed","collector"] as Preset[]).map(p=><button disabled={busy} className={preset===p?"active":""} key={p} onClick={()=>selectPreset(p)}>{p}</button>)}</div><button disabled={busy} onClick={loadBackupCheckpoint}>Load backup checkpoint</button><label>Test exploration <b>{Math.round(testEpsilonSetting*100)}%</b><input disabled={busy} aria-label="Test exploration percentage" type="range" min="0" max="100" step="1" value={testEpsilonSetting*100} onChange={e=>setTestEpsilonSetting(Number(e.target.value)/100)}/></label><label>Animation speed <input aria-label="Animation speed" type="range" min="100" max="900" step="50" value={1000-speed} onChange={e=>setSpeed(1000-Number(e.target.value))}/></label><button onClick={()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}>Presentation mode</button></div></div>
   </section>;
 }
 
