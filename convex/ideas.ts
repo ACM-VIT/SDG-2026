@@ -1,12 +1,15 @@
 import { v } from "convex/values";
-import { mutation, query, MutationCtx } from "./_generated/server";
+import { mutation, internalMutation, query, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { uploadsOpen } from "./settings";
 
-export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
+// Only callable from the /upload HTTP action, which stores the file and
+// records its ownership in the same server-side flow. Clients never supply
+// a storage ID here, so upload provenance can't be spoofed or raced.
+export const recordUpload = internalMutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Not signed in");
     const membership = await ctx.db
@@ -19,31 +22,6 @@ export const generateUploadUrl = mutation({
     if (!(await uploadsOpen(ctx))) {
       throw new Error("Submissions are currently closed");
     }
-    return await ctx.storage.generateUploadUrl();
-  },
-});
-
-// Called right after a file finishes uploading, so the storage ID gets
-// bound to the uploader's team before it can ever be referenced elsewhere.
-// First claim wins: once a storage ID is claimed, nobody else can claim it,
-// so a team can never graft another team's file onto their own submission.
-export const claimUpload = mutation({
-  args: { storageId: v.id("_storage") },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) throw new Error("Not signed in");
-    const membership = await ctx.db
-      .query("memberships")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .unique();
-    if (!membership) {
-      throw new Error("Join a team before uploading documents");
-    }
-    const existing = await ctx.db
-      .query("uploads")
-      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
-      .unique();
-    if (existing) throw new Error("This upload has already been claimed");
     await ctx.db.insert("uploads", {
       storageId: args.storageId,
       teamId: membership.teamId,

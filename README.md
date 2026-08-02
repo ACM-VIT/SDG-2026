@@ -143,7 +143,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 <div align="center">
   
-Made with ❤️ by <a href="https://acmvit.in/" target="_blank">ACM‑VIT</a>
+🤍 Crafted with love by <a href="https://acmvit.in/" target="_blank">ACM‑VIT</a>
 
 ![Footer GIF](https://raw.githubusercontent.com/ACM-VIT/.github/master/profile/domains.gif)
 

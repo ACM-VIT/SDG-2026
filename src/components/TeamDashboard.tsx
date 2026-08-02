@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { useAuthToken } from "@convex-dev/auth/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { TRACKS } from "../../convex/tracks";
@@ -25,8 +26,7 @@ type Attachment = { storageId: Id<"_storage">; name: string };
 export function TeamDashboard({ team }: { team: Team }) {
   const submissions = useQuery(api.ideas.teamSubmissions);
   const settings = useQuery(api.settings.get);
-  const generateUploadUrl = useMutation(api.ideas.generateUploadUrl);
-  const claimUpload = useMutation(api.ideas.claimUpload);
+  const authToken = useAuthToken();
   const submitIdea = useMutation(api.ideas.submitIdea);
   const updateSubmission = useMutation(api.ideas.updateSubmission);
   const cleanupUploads = useMutation(api.ideas.cleanupUploads);
@@ -90,15 +90,22 @@ export function TeamDashboard({ team }: { team: Team }) {
     const uploaded: Attachment[] = [];
     try {
       for (const file of files) {
-        const uploadUrl = await generateUploadUrl();
-        const result = await fetch(uploadUrl, {
-          method: "POST",
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          body: file,
-        });
-        if (!result.ok) throw new Error(`Failed to upload ${file.name}`);
+        const result = await fetch(
+          `${import.meta.env.VITE_CONVEX_SITE_URL}/upload`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "Content-Type": file.type || "application/octet-stream",
+            },
+            body: file,
+          }
+        );
+        if (!result.ok) {
+          const body = await result.json().catch(() => null);
+          throw new Error(body?.error ?? `Failed to upload ${file.name}`);
+        }
         const { storageId } = await result.json();
-        await claimUpload({ storageId });
         uploaded.push({ storageId, name: file.name });
       }
       if (submission) {
